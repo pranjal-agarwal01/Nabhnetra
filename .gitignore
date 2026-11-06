@@ -4,7 +4,7 @@ __pycache__/
 .venv/
 venv/
 
-# datasets, trained weights and generated outputs stay out of git
+# datasets, training runs and generated outputs stay out of git
 data/
 runs/
 models/
@@ -12,5 +12,8 @@ models/
 *.onnx
 results/
 
-# keep these curated outputs if you want them in the README
+# the released models in weights/ are tracked on purpose
+!weights/*.pt
+
+# curated figures for the README
 !docs/media/

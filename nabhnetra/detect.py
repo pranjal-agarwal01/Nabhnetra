@@ -3,13 +3,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import cv2
 import numpy as np
 
 from .common import CLASSES, ROOT
 from .realdata import iou_xywh, parse_video_name
 
-WEIGHTS = {"ir": ROOT / "runs/detect/ir/weights/best.pt", "eo": ROOT / "runs/detect/eo/weights/best.pt"}
+
+def _weights(trained: str, shipped: str) -> Path:
+    """A freshly trained model if one exists, otherwise the weights shipped in weights/."""
+    path = ROOT / trained
+    return path if path.exists() else ROOT / shipped
+
+
+WEIGHTS = {"ir": _weights("runs/detect/ir/weights/best.pt", "weights/thermal_yolo11n.pt"),
+           "eo": _weights("runs/detect/eo/weights/best.pt", "weights/daylight_yolo11n.pt")}
 # BGR versions of the air-picture palette: drone orange, bird aqua, manned aircraft blue
 COLORS = {"drone": (52, 104, 235), "bird": (122, 175, 27), "aircraft": (214, 120, 42),
           "helicopter": (214, 120, 42)}
@@ -56,6 +63,8 @@ def load_truth(video: Path, offset: float = 0.5):
 
 def draw(frame, preds, truth=None, title="", scale=1.0):
     """Annotated copy of the frame, upscaled by `scale` so small thermal frames stay readable."""
+    import cv2
+
     img = cv2.resize(frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST) \
         if scale != 1.0 else frame.copy()
     if truth is not None:

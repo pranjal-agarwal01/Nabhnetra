@@ -8,7 +8,9 @@ import numpy as np
 from .common import ROOT
 from .realdata import AUDIO_LABELS, logmel, windows
 
-AUDIO_WEIGHTS = ROOT / "models" / "audio_cnn.pt"
+# a freshly trained model if one exists, otherwise the one shipped in weights/
+AUDIO_WEIGHTS = (ROOT / "models" / "audio_cnn.pt" if (ROOT / "models" / "audio_cnn.pt").exists()
+                 else ROOT / "weights" / "audio_cnn.pt")
 
 
 def make_model(n_classes: int = len(AUDIO_LABELS)):

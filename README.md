@@ -1,5 +1,7 @@
 # Nabhnetra
 
+[![tests](https://github.com/pranjal-agarwal01/Nabhnetra/actions/workflows/tests.yml/badge.svg)](https://github.com/pranjal-agarwal01/Nabhnetra/actions/workflows/tests.yml)
+
 *Nabhnetra* (नभनेत्र) is Sanskrit for "eye on the sky".
 
 Open-source multi-sensor fusion for aerial situational awareness. Nabhnetra combines radar,
@@ -93,7 +95,9 @@ Scenarios: `mixed`, `night`, `fog`, `bird_flock`, `swarm`, `radar_failure`.
 ## Try the trained detectors
 
 `samples/` holds eight 10-second clips the detectors never saw in training: one drone, bird,
-airplane and helicopter for each camera.
+airplane and helicopter for each camera. The trained models ship in [weights/](weights/), so
+these commands work straight after cloning (install `requirements-ml.txt` first). What each
+model is for, how it was tested and where it fails: [docs/MODEL_CARD.md](docs/MODEL_CARD.md).
 
 ```bash
 python -I scripts/detect_video.py samples
@@ -272,6 +276,8 @@ around a generic defended point; no real location is modelled. All data is publi
 - Detector training: Ultralytics YOLO (AGPL-3.0). The fusion code depends only on the confusion
   matrices, so the detector can be swapped for an Apache-2.0 model such as YOLOX or RT-DETR.
 
-## License
+## License and citation
 
-MIT. See [LICENSE](LICENSE).
+Code: MIT, see [LICENSE](LICENSE). The two YOLO detector weights in `weights/` are AGPL-3.0
+(fine-tuned from Ultralytics YOLO11n); the audio model weights are MIT. To cite the software,
+use [CITATION.cff](CITATION.cff).

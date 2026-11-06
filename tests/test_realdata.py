@@ -55,6 +55,9 @@ def test_logistic_fit_recovers_parameters():
 
 
 def test_shrink_frame_moves_box_with_target():
+    import pytest
+
+    pytest.importorskip("cv2")
     from nabhnetra.realdata import shrink_frame
 
     img = np.zeros((256, 320, 3), np.uint8)
