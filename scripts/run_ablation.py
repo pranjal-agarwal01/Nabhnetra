@@ -71,10 +71,12 @@ def main():
     ap.add_argument("--seeds", type=int, default=5)
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     ap.add_argument("--config", help="YAML config (default: configs/default.yaml)")
+    ap.add_argument("--set", nargs="*", default=[], metavar="KEY=VALUE",
+                    help="override config values, e.g. tracker.model=imm")
     ap.add_argument("--out", default="results/ablation")
     args = ap.parse_args()
 
-    cfg = load_config(args.config)
+    cfg = load_config(args.config, args.set)
     jobs = [(s, c, CONFIGS[c], seed, cfg) for s in args.scenarios for c in args.configs
             for seed in range(args.seeds)]
     print(f"{len(jobs)} runs on {args.workers} workers ...")

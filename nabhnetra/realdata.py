@@ -207,6 +207,35 @@ def logmel(x, sr, n_fft=1024, hop=256, n_mels=64, fmin=50.0, fmax=None):
     return np.log(mel + 1e-10).T.astype(np.float32)
 
 
+def decide(probs, groups, threshold=0.0, k=1, n=1, background=2):
+    """Turn per-window class probabilities into reported labels with two false-alarm guards.
+
+    threshold: report a target class only if its probability is at least this, else background.
+    k-of-n:    report a label only if it was the (thresholded) decision in at least k of the last n
+               windows of the same recording. Only past windows are used, so it runs in real time.
+    groups:    recording id per window; windows of each recording must be in time order.
+    """
+    probs = np.asarray(probs, dtype=float)
+    raw = probs.argmax(axis=1)
+    lab = np.where((raw != background) & (probs.max(axis=1) >= threshold), raw, background)
+    if n <= 1:
+        return lab
+    out = lab.copy()
+    groups = np.asarray(groups)
+    for g in dict.fromkeys(groups.tolist()):
+        idx = np.flatnonzero(groups == g)
+        seq = lab[idx]
+        for j in range(len(seq)):
+            recent = seq[max(0, j - n + 1): j + 1]
+            recent = recent[recent != background]
+            if recent.size:
+                vals, counts = np.unique(recent, return_counts=True)
+                out[idx[j]] = vals[counts.argmax()] if counts.max() >= k else background
+            else:
+                out[idx[j]] = background
+    return out
+
+
 def windows(x, sr, win_s=1.0, hop_s=0.5):
     n, h = int(win_s * sr), int(hop_s * sr)
     return [x[i:i + n] for i in range(0, max(1, len(x) - n + 1), h)]

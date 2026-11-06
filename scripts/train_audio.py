@@ -6,6 +6,13 @@ Evaluation is k-fold *by file*: every 10-second clip is tested by a model that n
 part of it, so the matrix is honest even though the dataset has only 90 clips. The result
 replaces the drone, helicopter and background rows of configs/confusion/acoustic.json; the bird
 and aircraft rows stay as documented assumptions (the dataset has no such audio).
+
+False-alarm control: the raw classifier labels too many background windows as drone or
+helicopter. On the out-of-fold predictions the script tries every combination of a confidence
+threshold and a k-of-n vote over consecutive windows, and keeps the one with the best mean
+drone/helicopter recall whose background false-alarm rate is at most --max-fa. The operating
+point is chosen on the same out-of-fold predictions it is reported on, so the result is slightly
+optimistic; the full table of operating points is saved for inspection.
 """
 from __future__ import annotations
 
@@ -19,8 +26,14 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # use nabhnetra without installing
 import numpy as np
 
+from nabhnetra.audio import make_model
 from nabhnetra.common import ROOT
-from nabhnetra.realdata import AUDIO_LABELS, kfold_by_group, load_wav, logmel, parse_audio_name, windows
+from nabhnetra.realdata import (AUDIO_LABELS, decide, kfold_by_group, load_wav, logmel,
+                                parse_audio_name, windows)
+
+BG = AUDIO_LABELS.index("background")
+THRESHOLDS = [0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
+VOTES = [(1, 1), (2, 2), (2, 3), (3, 3), (3, 4)]
 
 
 def features(files, sr, win_s, hop_s):
@@ -36,22 +49,11 @@ def features(files, sr, win_s, hop_s):
     return np.stack(X)[:, None], np.array(y), np.array(g)
 
 
-def make_model(n_mels, n_classes):
-    import torch.nn as nn
-
-    def block(i, o):
-        return nn.Sequential(nn.Conv2d(i, o, 3, padding=1), nn.BatchNorm2d(o), nn.ReLU(),
-                             nn.MaxPool2d(2))
-
-    return nn.Sequential(block(1, 16), block(16, 32), block(32, 64), nn.AdaptiveAvgPool2d(1),
-                         nn.Flatten(), nn.Dropout(0.3), nn.Linear(64, n_classes))
-
-
 def train(X, y, epochs, seed, device):
     import torch
 
     torch.manual_seed(seed)
-    model = make_model(X.shape[2], len(AUDIO_LABELS)).to(device)
+    model = make_model(len(AUDIO_LABELS)).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=2e-3, weight_decay=1e-3)
     loss_fn = torch.nn.CrossEntropyLoss()
     Xt, yt = torch.tensor(X), torch.tensor(y)
@@ -72,12 +74,27 @@ def train(X, y, epochs, seed, device):
     return model
 
 
-def predict(model, X, device):
+def predict_proba(model, X, device):
     import torch
 
     model.eval()
     with torch.no_grad():
-        return model(torch.tensor(X).to(device)).argmax(1).cpu().numpy()
+        return torch.softmax(model(torch.tensor(X).to(device)), dim=1).cpu().numpy()
+
+
+def confusion(y, pred):
+    counts = np.zeros((len(AUDIO_LABELS), len(AUDIO_LABELS)), dtype=int)
+    for t, p in zip(y, pred):
+        counts[t, p] += 1
+    return counts
+
+
+def rates(counts):
+    r = counts / np.maximum(counts.sum(axis=1, keepdims=True), 1)
+    return {"drone_recall": float(r[AUDIO_LABELS.index("drone"), AUDIO_LABELS.index("drone")]),
+            "helicopter_recall": float(r[AUDIO_LABELS.index("helicopter"),
+                                         AUDIO_LABELS.index("helicopter")]),
+            "false_alarm": float(1.0 - r[BG, BG])}
 
 
 def main():
@@ -91,6 +108,8 @@ def main():
     ap.add_argument("--hop", type=float, default=0.5)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--save-model", help="also train on all files and save the weights here")
+    ap.add_argument("--max-fa", type=float, default=0.05,
+                    help="highest acceptable share of background windows reported as a target")
     args = ap.parse_args()
 
     import torch
@@ -105,18 +124,35 @@ def main():
     fold_of = kfold_by_group(list(labels_of), list(labels_of.values()), args.folds, args.seed)
     folds = np.array([fold_of[g] for g in groups])
 
-    counts = np.zeros((len(AUDIO_LABELS), len(AUDIO_LABELS)), dtype=int)
+    probs = np.zeros((len(y), len(AUDIO_LABELS)))
     for k in range(args.folds):
         tr, te = folds != k, folds == k
         model = train(X[tr], y[tr], args.epochs, args.seed + k, device)
-        pred = predict(model, X[te], device)
-        for t, p in zip(y[te], pred):
-            counts[t, p] += 1
-        print(f"  fold {k + 1}/{args.folds}: window accuracy {(pred == y[te]).mean():.3f}")
+        probs[te] = predict_proba(model, X[te], device)
+        print(f"  fold {k + 1}/{args.folds}: window accuracy "
+              f"{(probs[te].argmax(1) == y[te]).mean():.3f}")
 
-    measured = (counts + 1) / (counts + 1).sum(axis=1, keepdims=True)
-    print("\nRows true, columns predicted:", AUDIO_LABELS)
+    raw_counts = confusion(y, probs.argmax(1))
+    table = []
+    for thr in THRESHOLDS:
+        for k_, n_ in VOTES:
+            c = confusion(y, decide(probs, groups, thr, k_, n_, BG))
+            table.append({"threshold": thr, "k": k_, "n": n_, **rates(c), "counts": c.tolist()})
+    ok = [r for r in table if r["false_alarm"] <= args.max_fa]
+    if not ok:
+        raise SystemExit(f"No operating point reaches false alarms <= {args.max_fa}")
+    best = max(ok, key=lambda r: (r["drone_recall"] + r["helicopter_recall"]) / 2)
+    counts = np.array(best["counts"])
+
+    print("\nRaw classifier (argmax per window):", rates(raw_counts))
+    print(f"Chosen rule: threshold {best['threshold']}, {best['k']} of last {best['n']} windows:",
+          {k: round(v, 3) for k, v in rates(counts).items()})
+    print("Rows true, columns reported:", AUDIO_LABELS)
     print(counts)
+    measured = (counts + 1) / (counts + 1).sum(axis=1, keepdims=True)
+    oof = ROOT / "runs" / "audio_oof.npz"
+    oof.parent.mkdir(exist_ok=True)
+    np.savez(oof, probs=probs, y=y, groups=groups)
 
     out_path = Path(args.out)
     if not out_path.is_absolute():
@@ -127,14 +163,19 @@ def main():
     rows["helicopter"] = measured[AUDIO_LABELS.index("helicopter")].round(4).tolist()
     data.update({
         "source": (f"measured {date.today().isoformat()}: {args.folds}-fold by file over "
-                   f"{len(files)} clips ({len(y)} windows of {args.win} s). Drone, helicopter and "
-                   "background rows measured; bird and aircraft rows assumed."),
+                   f"{len(files)} clips ({len(y)} windows of {args.win} s), with the decision rule "
+                   f"threshold {best['threshold']} and {best['k']}-of-{best['n']} vote chosen for "
+                   f"false alarms <= {args.max_fa}. Drone, helicopter and background rows "
+                   "measured; bird and aircraft rows assumed."),
         "labels": list(AUDIO_LABELS),
         "true_classes": list(rows),
         "matrices": {"all": list(rows.values())},
         "background_row": measured[AUDIO_LABELS.index("background")].round(4).tolist(),
         "assumed_rows": ["bird", "aircraft"],
         "counts_true_x_pred": counts.tolist(),
+        "decision_rule": {"threshold": best["threshold"], "k": best["k"], "n": best["n"]},
+        "raw_classifier": {**rates(raw_counts), "counts": raw_counts.tolist()},
+        "operating_points": [{k: v for k, v in r.items() if k != "counts"} for r in table],
     })
     out_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     print(f"Wrote {out_path}")

@@ -104,6 +104,11 @@ tracker:
   bearing_init: auto       # auto: start tracks from camera/acoustic directions only when no radar is active
   bearing_init_range_m: 1000
   bearing_init_range_sigma_m: 600
+  model: imm               # imm: the two models below (default); cv: one constant-velocity filter using q
+  imm:
+    q: [1.0, 40.0]         # calm cruise, manoeuvre
+    dwell_s: [20.0, 6.0]   # expected time spent in each model before switching
+    init_mu: [0.5, 0.5]
 
 identity:
   prior: {drone: 0.25, bird: 0.45, aircraft: 0.15, helicopter: 0.15}

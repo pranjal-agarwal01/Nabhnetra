@@ -1,5 +1,5 @@
 {
-  "source": "measured 2026-11-06: 5-fold by file over 90 clips (1710 windows of 1.0 s). Drone, helicopter and background rows measured; bird and aircraft rows assumed.",
+  "source": "measured 2026-11-06: 5-fold by file over 90 clips (1710 windows of 1.0 s), with the decision rule threshold 0.9 and 3-of-3 vote chosen for false alarms <= 0.05. Drone, helicopter and background rows measured; bird and aircraft rows assumed.",
   "labels": [
     "drone",
     "helicopter",
@@ -14,9 +14,9 @@
   "matrices": {
     "all": [
       [
-        0.9319,
-        0.0157,
-        0.0524
+        0.7941,
+        0.0017,
+        0.2042
       ],
       [
         0.01,
@@ -29,16 +29,16 @@
         0.57
       ],
       [
-        0.0157,
-        0.9127,
-        0.0716
+        0.0052,
+        0.6928,
+        0.3019
       ]
     ]
   },
   "background_row": [
-    0.1449,
-    0.089,
-    0.7661
+    0.0297,
+    0.014,
+    0.9564
   ],
   "assumed_rows": [
     "bird",
@@ -46,19 +46,328 @@
   ],
   "counts_true_x_pred": [
     [
-      533,
-      8,
-      29
+      454,
+      0,
+      116
     ],
     [
-      8,
-      522,
-      40
+      2,
+      396,
+      172
     ],
     [
-      82,
-      50,
-      438
+      16,
+      7,
+      547
     ]
+  ],
+  "decision_rule": {
+    "threshold": 0.9,
+    "k": 3,
+    "n": 3
+  },
+  "raw_classifier": {
+    "drone_recall": 0.9631578947368421,
+    "helicopter_recall": 0.9298245614035088,
+    "false_alarm": 0.3140350877192982,
+    "counts": [
+      [
+        549,
+        16,
+        5
+      ],
+      [
+        17,
+        530,
+        23
+      ],
+      [
+        98,
+        81,
+        391
+      ]
+    ]
+  },
+  "operating_points": [
+    {
+      "threshold": 0.0,
+      "k": 1,
+      "n": 1,
+      "drone_recall": 0.9631578947368421,
+      "helicopter_recall": 0.9298245614035088,
+      "false_alarm": 0.3140350877192982
+    },
+    {
+      "threshold": 0.0,
+      "k": 2,
+      "n": 2,
+      "drone_recall": 0.9035087719298246,
+      "helicopter_recall": 0.8543859649122807,
+      "false_alarm": 0.19122807017543864
+    },
+    {
+      "threshold": 0.0,
+      "k": 2,
+      "n": 3,
+      "drone_recall": 0.9140350877192982,
+      "helicopter_recall": 0.8842105263157894,
+      "false_alarm": 0.256140350877193
+    },
+    {
+      "threshold": 0.0,
+      "k": 3,
+      "n": 3,
+      "drone_recall": 0.8473684210526315,
+      "helicopter_recall": 0.787719298245614,
+      "false_alarm": 0.1350877192982456
+    },
+    {
+      "threshold": 0.0,
+      "k": 3,
+      "n": 4,
+      "drone_recall": 0.8596491228070176,
+      "helicopter_recall": 0.8157894736842105,
+      "false_alarm": 0.18596491228070178
+    },
+    {
+      "threshold": 0.5,
+      "k": 1,
+      "n": 1,
+      "drone_recall": 0.9631578947368421,
+      "helicopter_recall": 0.9263157894736842,
+      "false_alarm": 0.29649122807017547
+    },
+    {
+      "threshold": 0.5,
+      "k": 2,
+      "n": 2,
+      "drone_recall": 0.9035087719298246,
+      "helicopter_recall": 0.8491228070175438,
+      "false_alarm": 0.17894736842105263
+    },
+    {
+      "threshold": 0.5,
+      "k": 2,
+      "n": 3,
+      "drone_recall": 0.9140350877192982,
+      "helicopter_recall": 0.8807017543859649,
+      "false_alarm": 0.2421052631578947
+    },
+    {
+      "threshold": 0.5,
+      "k": 3,
+      "n": 3,
+      "drone_recall": 0.8473684210526315,
+      "helicopter_recall": 0.7807017543859649,
+      "false_alarm": 0.1228070175438597
+    },
+    {
+      "threshold": 0.5,
+      "k": 3,
+      "n": 4,
+      "drone_recall": 0.8596491228070176,
+      "helicopter_recall": 0.8122807017543859,
+      "false_alarm": 0.1719298245614035
+    },
+    {
+      "threshold": 0.6,
+      "k": 1,
+      "n": 1,
+      "drone_recall": 0.9596491228070175,
+      "helicopter_recall": 0.9122807017543859,
+      "false_alarm": 0.23684210526315785
+    },
+    {
+      "threshold": 0.6,
+      "k": 2,
+      "n": 2,
+      "drone_recall": 0.9,
+      "helicopter_recall": 0.8333333333333334,
+      "false_alarm": 0.13684210526315788
+    },
+    {
+      "threshold": 0.6,
+      "k": 2,
+      "n": 3,
+      "drone_recall": 0.9140350877192982,
+      "helicopter_recall": 0.8631578947368421,
+      "false_alarm": 0.18596491228070178
+    },
+    {
+      "threshold": 0.6,
+      "k": 3,
+      "n": 3,
+      "drone_recall": 0.8421052631578947,
+      "helicopter_recall": 0.7649122807017544,
+      "false_alarm": 0.0964912280701754
+    },
+    {
+      "threshold": 0.6,
+      "k": 3,
+      "n": 4,
+      "drone_recall": 0.8596491228070176,
+      "helicopter_recall": 0.7929824561403509,
+      "false_alarm": 0.1473684210526316
+    },
+    {
+      "threshold": 0.7,
+      "k": 1,
+      "n": 1,
+      "drone_recall": 0.9596491228070175,
+      "helicopter_recall": 0.8912280701754386,
+      "false_alarm": 0.18596491228070178
+    },
+    {
+      "threshold": 0.7,
+      "k": 2,
+      "n": 2,
+      "drone_recall": 0.9,
+      "helicopter_recall": 0.8140350877192982,
+      "false_alarm": 0.11228070175438598
+    },
+    {
+      "threshold": 0.7,
+      "k": 2,
+      "n": 3,
+      "drone_recall": 0.9140350877192982,
+      "helicopter_recall": 0.8350877192982457,
+      "false_alarm": 0.15438596491228074
+    },
+    {
+      "threshold": 0.7,
+      "k": 3,
+      "n": 3,
+      "drone_recall": 0.8421052631578947,
+      "helicopter_recall": 0.7491228070175439,
+      "false_alarm": 0.0736842105263158
+    },
+    {
+      "threshold": 0.7,
+      "k": 3,
+      "n": 4,
+      "drone_recall": 0.8596491228070176,
+      "helicopter_recall": 0.7684210526315789,
+      "false_alarm": 0.10175438596491226
+    },
+    {
+      "threshold": 0.8,
+      "k": 1,
+      "n": 1,
+      "drone_recall": 0.9473684210526315,
+      "helicopter_recall": 0.8631578947368421,
+      "false_alarm": 0.15263157894736845
+    },
+    {
+      "threshold": 0.8,
+      "k": 2,
+      "n": 2,
+      "drone_recall": 0.8824561403508772,
+      "helicopter_recall": 0.7842105263157895,
+      "false_alarm": 0.09824561403508769
+    },
+    {
+      "threshold": 0.8,
+      "k": 2,
+      "n": 3,
+      "drone_recall": 0.9052631578947369,
+      "helicopter_recall": 0.8070175438596491,
+      "false_alarm": 0.12456140350877198
+    },
+    {
+      "threshold": 0.8,
+      "k": 3,
+      "n": 3,
+      "drone_recall": 0.8192982456140351,
+      "helicopter_recall": 0.7210526315789474,
+      "false_alarm": 0.07017543859649122
+    },
+    {
+      "threshold": 0.8,
+      "k": 3,
+      "n": 4,
+      "drone_recall": 0.8491228070175438,
+      "helicopter_recall": 0.7368421052631579,
+      "false_alarm": 0.0859649122807018
+    },
+    {
+      "threshold": 0.9,
+      "k": 1,
+      "n": 1,
+      "drone_recall": 0.9315789473684211,
+      "helicopter_recall": 0.8280701754385965,
+      "false_alarm": 0.09473684210526312
+    },
+    {
+      "threshold": 0.9,
+      "k": 2,
+      "n": 2,
+      "drone_recall": 0.8631578947368421,
+      "helicopter_recall": 0.7578947368421053,
+      "false_alarm": 0.056140350877192935
+    },
+    {
+      "threshold": 0.9,
+      "k": 2,
+      "n": 3,
+      "drone_recall": 0.8912280701754386,
+      "helicopter_recall": 0.7842105263157895,
+      "false_alarm": 0.07192982456140351
+    },
+    {
+      "threshold": 0.9,
+      "k": 3,
+      "n": 3,
+      "drone_recall": 0.7964912280701755,
+      "helicopter_recall": 0.6947368421052632,
+      "false_alarm": 0.04035087719298247
+    },
+    {
+      "threshold": 0.9,
+      "k": 3,
+      "n": 4,
+      "drone_recall": 0.8298245614035088,
+      "helicopter_recall": 0.7210526315789474,
+      "false_alarm": 0.05087719298245619
+    },
+    {
+      "threshold": 0.95,
+      "k": 1,
+      "n": 1,
+      "drone_recall": 0.9070175438596492,
+      "helicopter_recall": 0.7964912280701755,
+      "false_alarm": 0.08245614035087723
+    },
+    {
+      "threshold": 0.95,
+      "k": 2,
+      "n": 2,
+      "drone_recall": 0.8350877192982457,
+      "helicopter_recall": 0.7228070175438597,
+      "false_alarm": 0.05087719298245619
+    },
+    {
+      "threshold": 0.95,
+      "k": 2,
+      "n": 3,
+      "drone_recall": 0.8596491228070176,
+      "helicopter_recall": 0.756140350877193,
+      "false_alarm": 0.06491228070175437
+    },
+    {
+      "threshold": 0.95,
+      "k": 3,
+      "n": 3,
+      "drone_recall": 0.7666666666666667,
+      "helicopter_recall": 0.6578947368421053,
+      "false_alarm": 0.0368421052631579
+    },
+    {
+      "threshold": 0.95,
+      "k": 3,
+      "n": 4,
+      "drone_recall": 0.787719298245614,
+      "helicopter_recall": 0.6842105263157895,
+      "false_alarm": 0.04561403508771933
+    }
   ]
 }

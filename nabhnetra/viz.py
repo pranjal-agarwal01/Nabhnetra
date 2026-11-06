@@ -296,3 +296,56 @@ def fmt(value, scale=1.0, digits=1):
     if value is None or (isinstance(value, float) and math.isnan(value)):
         return "n/a"
     return f"{value * scale:.{digits}f}"
+
+
+def plot_sensitivity(summary, scenarios, path, n_seeds: int):
+    """Dumbbell chart: time to identify a drone, radar alone vs radar + cameras, per assumption.
+
+    summary rows: (scenario, label, level, ident_radar, ident_fused, delay_radar, delay_fused).
+    """
+    apply_style()
+    fig, axes = plt.subplots(1, len(scenarios), figsize=(6.2 * len(scenarios), 9.2), dpi=100,
+                             sharey=True)
+    axes = np.atleast_1d(axes)
+    fig.subplots_adjust(left=0.27, right=0.98, top=0.87, bottom=0.07, wspace=0.08)
+    for ax, sc in zip(axes, scenarios):
+        rows = [r for r in summary if r[0] == sc]
+        y = np.arange(len(rows))[::-1]
+        for yi, (_, label, level, _, _, da, db) in zip(y, rows):
+            if np.isfinite(da) and np.isfinite(db):
+                ax.plot([db, da], [yi, yi], lw=1.2, color=INK["axis"], zorder=1)
+            if np.isfinite(da):
+                ax.plot(da, yi, marker="o", ms=8, mfc=INK["surface"], mec=INK["muted"], mew=1.6,
+                        zorder=2)
+            if np.isfinite(db):
+                ax.plot(db, yi, marker="D", ms=7, mfc=GROUP["manned"], mec=INK["surface"], mew=1.2,
+                        zorder=3)
+            if not np.isfinite(da):
+                ax.text((db if np.isfinite(db) else 0) + 4, yi, "radar alone never identified one",
+                        va="center", fontsize=8, color=INK["muted"])
+        ax.set_yticks(y)
+        ax.set_yticklabels([f"{label}: {level}" if level != "baseline" else "Baseline"
+                            for _, label, level, *_ in rows], fontsize=9, color=INK["primary"])
+        for tick, (_, _, level, *_) in zip(ax.get_yticklabels(), rows):
+            if level == "baseline":
+                tick.set_fontweight("bold")
+        ax.set_xlim(left=0)
+        ax.grid(axis="x", color=INK["grid"], lw=0.8, zorder=0)
+        ax.tick_params(axis="y", length=0)
+        ax.tick_params(axis="x", labelsize=8.5)
+        for side in ("top", "right", "left"):
+            ax.spines[side].set_visible(False)
+        ax.set_title(f"{sc}", loc="left", fontsize=11, pad=8)
+        ax.set_xlabel("Median time to identify a drone (s), lower is better", fontsize=9)
+    handles = [Line2D([], [], ls="none", marker="o", ms=8, mfc=INK["surface"], mec=INK["muted"],
+                      mew=1.6, label="Radar only"),
+               Line2D([], [], ls="none", marker="D", ms=7, mfc=GROUP["manned"], mec=INK["surface"],
+                      label="Radar + daylight + thermal")]
+    fig.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.27, 0.935), ncol=2,
+               frameon=False, fontsize=9.5)
+    fig.suptitle("Sensitivity: each unmeasured assumption set lower and higher", x=0.02, y=0.985,
+                 ha="left", fontsize=14, weight="bold")
+    fig.text(0.02, 0.95, f"Mean of {n_seeds} seeds per point.", fontsize=9.5,
+             color=INK["secondary"])
+    fig.savefig(path, dpi=110)
+    plt.close(fig)

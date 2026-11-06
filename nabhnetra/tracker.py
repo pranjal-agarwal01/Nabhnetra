@@ -1,7 +1,9 @@
 """Multi-sensor, multi-target tracker: one extended Kalman filter per track, one shared track list.
 
 State per track: x = [east, north, up, v_east, v_north, v_up] in a local frame (metres, m/s).
-Motion model: nearly constant velocity (white-noise acceleration with spectral density q).
+Motion model: nearly constant velocity (white-noise acceleration with spectral density q), or
+an IMM (interacting multiple model) filter that runs a calm and a manoeuvre version of that
+model side by side and blends them by how well each explains the measurements.
 Each sensor scan is processed in turn ("sequential fusion"):
   1. predict every track to the scan time
   2. gate each detection against each track using the Mahalanobis distance
@@ -73,6 +75,10 @@ class Track:
     log_evidence: np.ndarray = field(default_factory=lambda: np.zeros(N_CLASSES))
     contrib: dict = field(default_factory=dict)
     evidence_t: float = 0.0
+    # IMM only: one state and covariance per motion model, and the model probabilities
+    xs: np.ndarray | None = None
+    Ps: np.ndarray | None = None
+    mu: np.ndarray | None = None
 
     @property
     def pos_sigma(self) -> float:
@@ -94,6 +100,14 @@ class Tracker:
         self.r0 = float(cfg["bearing_init_range_m"])
         self.r0_sigma = float(cfg["bearing_init_range_sigma_m"])
         self.identity = identity
+        self.model = cfg.get("model", "cv")
+        if self.model == "imm":
+            imm = cfg["imm"]
+            self.imm_q = np.asarray(imm["q"], dtype=float)
+            self.imm_dwell = np.asarray(imm["dwell_s"], dtype=float)
+            self.imm_mu0 = np.asarray(imm["init_mu"], dtype=float) / np.sum(imm["init_mu"])
+        elif self.model != "cv":
+            raise ValueError(f"tracker.model must be cv or imm, not {self.model}")
         self.tracks: list[Track] = []
         self._next_id = 1
 
@@ -103,17 +117,74 @@ class Tracker:
         for tr in self.tracks:
             dt = t - tr.t
             if dt > 1e-9:
-                F, Q = cv_model(dt, self.q)
-                tr.x = F @ tr.x
-                tr.P = F @ tr.P @ F.T + Q
+                if tr.mu is not None:
+                    self._imm_predict(tr, dt)
+                else:
+                    F, Q = cv_model(dt, self.q)
+                    tr.x = F @ tr.x
+                    tr.P = F @ tr.P @ F.T + Q
                 tr.t = t
 
-    def _update(self, tr: Track, det: Detection, y, H, S):
-        K = tr.P @ H.T @ np.linalg.inv(S)
-        tr.x = tr.x + K @ y
+    @staticmethod
+    def _kf_update(x, P, det: Detection, y, H, S):
+        K = P @ H.T @ np.linalg.inv(S)
         I_KH = np.eye(6) - K @ H
-        tr.P = I_KH @ tr.P @ I_KH.T + K @ det.R @ K.T  # Joseph form: stays symmetric positive
-        tr.P = 0.5 * (tr.P + tr.P.T)
+        P = I_KH @ P @ I_KH.T + K @ det.R @ K.T  # Joseph form: stays symmetric positive
+        return x + K @ y, 0.5 * (P + P.T)
+
+    # --- IMM: a calm and a manoeuvre constant-velocity model, blended by how well each fits ---
+
+    def _imm_transition(self, dt: float) -> np.ndarray:
+        """Pi[i, j] = P(model j now | model i before), from each model's expected dwell time."""
+        m = len(self.imm_q)
+        leave = 1.0 - np.exp(-dt / self.imm_dwell)
+        Pi = np.diag(1.0 - leave)
+        for i in range(m):
+            for j in range(m):
+                if i != j:
+                    Pi[i, j] = leave[i] / (m - 1)
+        return Pi
+
+    def _imm_predict(self, tr: Track, dt: float):
+        Pi = self._imm_transition(dt)
+        c = Pi.T @ tr.mu                                    # predicted model probabilities
+        mix = Pi * tr.mu[:, None] / np.maximum(c[None, :], 1e-300)  # P(was i | now j)
+        xs, Ps = np.empty_like(tr.xs), np.empty_like(tr.Ps)
+        for j, q in enumerate(self.imm_q):
+            x0 = mix[:, j] @ tr.xs
+            d = tr.xs - x0
+            P0 = np.einsum("i,iab->ab", mix[:, j], tr.Ps) + np.einsum("i,ia,ib->ab", mix[:, j], d, d)
+            F, Q = cv_model(dt, q)
+            xs[j], Ps[j] = F @ x0, F @ P0 @ F.T + Q
+        tr.xs, tr.Ps, tr.mu = xs, Ps, c
+        self._imm_combine(tr)
+
+    def _imm_update(self, tr: Track, det: Detection):
+        loglik = np.empty(len(tr.mu))
+        for j in range(len(tr.mu)):
+            y, H = innovation(tr.xs[j], det)
+            S = H @ tr.Ps[j] @ H.T + det.R
+            loglik[j] = -0.5 * (float(y @ np.linalg.solve(S, y))
+                                + float(np.linalg.slogdet(2.0 * np.pi * S)[1]))
+            tr.xs[j], tr.Ps[j] = self._kf_update(tr.xs[j], tr.Ps[j], det, y, H, S)
+        w = np.log(np.maximum(tr.mu, 1e-300)) + loglik
+        w = np.exp(w - w.max())
+        mu = np.clip(w / w.sum(), 1e-6, 1.0)  # never rule a model out completely
+        tr.mu = mu / mu.sum()
+        self._imm_combine(tr)
+
+    @staticmethod
+    def _imm_combine(tr: Track):
+        """Overall estimate: probability-weighted mean, with the spread between models added."""
+        tr.x = tr.mu @ tr.xs
+        d = tr.xs - tr.x
+        tr.P = np.einsum("j,jab->ab", tr.mu, tr.Ps) + np.einsum("j,ja,jb->ab", tr.mu, d, d)
+
+    def _update(self, tr: Track, det: Detection, y, H, S):
+        if tr.mu is not None:
+            self._imm_update(tr, det)
+        else:
+            tr.x, tr.P = self._kf_update(tr.x, tr.P, det, y, H, S)
         tr.hits += 1
         tr.last_update = det.t
         tr.sensor_last[det.sensor] = det.t
@@ -125,12 +196,27 @@ class Tracker:
             self.identity.update(tr, det)
 
     def _gate(self, tr: Track, det: Detection, scale: float = 1.0):
+        """Mahalanobis gate. Returns (association cost, (y, H, S)) or None if outside the gate.
+
+        For an IMM track a measurement is accepted if *any* model accepts it, scored by the
+        best-fitting model. Gating only on the blended estimate fails at the start of a
+        manoeuvre: the calm model dominates, its uncertainty is small, the first off-course
+        measurements are rejected, and the filter never learns that the target is turning.
+        """
         y, H = innovation(tr.x, det)
         S = H @ tr.P @ H.T + det.R
-        d2 = float(y @ np.linalg.solve(S, y))
-        if d2 > scale * self.gates[len(y)]:
-            return None
-        return d2 + float(np.linalg.slogdet(S)[1]), (y, H, S)
+        candidates = [(y, S)]
+        if tr.mu is not None:
+            for j in range(len(tr.mu)):
+                yj, Hj = innovation(tr.xs[j], det)
+                candidates.append((yj, Hj @ tr.Ps[j] @ Hj.T + det.R))
+        best = None
+        for yc, Sc in candidates:
+            d2 = float(yc @ np.linalg.solve(Sc, yc))
+            if d2 <= scale * self.gates[len(yc)]:
+                cost = d2 + float(np.linalg.slogdet(Sc)[1])
+                best = cost if best is None else min(best, cost)
+        return None if best is None else (best, (y, H, S))
 
     # --- one sensor scan ---------------------------------------------------------------------
 
@@ -200,6 +286,9 @@ class Tracker:
                    last_update=t, init_sensor=d.sensor, cooperative_id=d.cooperative_id,
                    evidence_t=t)
         tr.sensor_last[d.sensor] = t
+        if self.model == "imm":
+            m = len(self.imm_q)
+            tr.xs, tr.Ps, tr.mu = np.tile(tr.x, (m, 1)), np.tile(tr.P, (m, 1, 1)), self.imm_mu0.copy()
         self._next_id += 1
         if d.likelihood is not None:
             self.identity.update(tr, d)

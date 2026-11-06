@@ -24,12 +24,14 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--sensors", nargs="+", help="subset of sensors (default: all configured)")
     ap.add_argument("--config", help="YAML config (default: configs/default.yaml)")
+    ap.add_argument("--set", nargs="*", default=[], metavar="KEY=VALUE",
+                    help="override config values, e.g. tracker.model=imm")
     ap.add_argument("--gif", action="store_true", help="also save an animated GIF")
     ap.add_argument("--at", type=float, help="time in seconds for the still (default: busiest)")
     ap.add_argument("--out", default="results/demo")
     args = ap.parse_args()
 
-    cfg = load_config(args.config)
+    cfg = load_config(args.config, args.set)
     sc = build_scenario(args.scenario, args.seed, cfg["sim"]["dt_s"], cfg["sim"]["duration_s"])
     print(f"Scenario '{sc.name}': {SCENARIOS[sc.name]}")
     print(f"{len(sc.specs)} targets, {len(sc.times)} steps of {sc.dt} s")

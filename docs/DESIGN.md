@@ -39,6 +39,12 @@ The models, equations and assumptions behind each module.
 - Detection: `SNR = SL − 20·log10(r) − α·r − noise + array_gain`, passed through a logistic.
   Birds are effectively silent, so hearing something is itself evidence against "bird".
 - The classifier outputs drone, helicopter or background. A "background" output means no report.
+- False-alarm rule: the raw classifier (argmax per 1 s window) flags 31% of background windows.
+  `train_audio.py` searches confidence thresholds and k-of-n votes over consecutive windows on
+  out-of-fold predictions and keeps the best rule with at most 5% false alarms: report only when
+  the class probability is at least 0.9 in each of the last 3 windows. Drone recall falls from
+  96% to 80%, helicopter from 93% to 70%, false alarms from 31% to 4%; the first report arrives
+  about 2 s after the sound starts. The vote uses past windows only, so it runs in real time.
 
 ### ADS-B
 - Cooperative aircraft report their own position (σ = 10 m horizontal, 15 m vertical) and an
@@ -47,12 +53,20 @@ The models, equations and assumptions behind each module.
 ## Tracker (`nabhnetra/tracker.py`)
 
 - State `x = [e, n, u, ve, vn, vu]`, nearly-constant-velocity model:
-  `F = [[I, dt·I], [0, I]]`, `Q = q · [[dt³/3·I, dt²/2·I], [dt²/2·I, dt·I]]`, with q = 6 m²/s³.
+  `F = [[I, dt·I], [0, I]]`, `Q = q · [[dt³/3·I, dt²/2·I], [dt²/2·I, dt·I]]`, with q = 6 m²/s³
+  when the single-filter option (`tracker.model: cv`) is used.
 - Measurement models: linear for ADS-B; extended Kalman filter for radar and cameras, with the
   Jacobian of `[r, az, el]` with respect to position in `geometry.rae_jacobian` (unit-tested
   against finite differences). Azimuth residuals are wrapped to [−π, π).
+- IMM (the default): two constant-velocity models with q = 1 (calm cruise) and q = 40 (manoeuvre)
+  run in parallel. Each step mixes their states by the switching probabilities (expected dwell
+  20 s and 6 s), predicts each, updates each with the same measurement, and re-weights them by
+  how likely each made that measurement. The track's estimate is the probability-weighted blend,
+  with the spread between the models added to its covariance.
 - Gating: Mahalanobis distance `d² = yᵀ S⁻¹ y` under the χ² 99.7% quantile for the measurement
-  dimension.
+  dimension. For an IMM track a measurement passes if any model accepts it. Gating on the blend
+  alone failed in testing: when a turn starts, the calm model dominates, the first off-course
+  measurements are rejected, and the filter never learns the target is turning.
 - Association: global nearest neighbour. The Hungarian algorithm minimises
   `d² + ln|S|` (the negative log-likelihood up to a constant) per sensor scan.
 - Update: Joseph form `P = (I−KH) P (I−KH)ᵀ + K R Kᵀ`, which keeps P symmetric positive definite.
@@ -118,6 +132,37 @@ Truth inside a 4 km radius is evaluated at every step.
   skipped by the decoder. `prepare_svanstrom.py` excludes them. Visible-camera boxes are loose
   (about 1.5–3× the target), so pixel sizes measured from them overstate the target.
 - There is one sensor site, so cameras alone cannot measure range.
-- With a single constant-velocity model, sharp manoeuvres are followed through process noise
-  rather than a manoeuvre model (IMM is on the roadmap).
+- The IMM uses two constant-velocity models with different noise rather than a true
+  coordinated-turn model, which would follow sustained turns more closely.
 - The label decoder keeps one box per frame, so frames with several birds are under-labelled.
+- The audio operating point is chosen on the same out-of-fold predictions it is reported on, so
+  its figures are slightly optimistic.
+
+## Sensitivity analysis (`scripts/run_sensitivity.py`)
+
+Every assumption not measured on real data is set to a lower and a higher value, one at a time:
+camera pixel angle (each camera, ×0.5 and ×2), camera detection curve (×0.67 and ×1.5), radar
+detection range (×0.5 and ×1.5), radar clutter (0 and 9 per scan), radar angle noise (×0.5 and
+×2), camera label persistence (0.3 and 0.9), identity memory τ (×0.5 and ×2), sensor evidence
+weights (×0.5 and ×2), class prior (uniform, drones rare), tracker manoeuvre noise (×0.5 and ×2),
+and speed-based identification (off). For each setting, radar alone is compared with radar plus
+both cameras on the same scenarios and seeds. Results are in `docs/SENSITIVITY.md`.
+
+## From simulation to the field
+
+What changes when real sensors replace the simulation, and what to check first:
+
+- **Sensor registration.** Every sensor's position, heading and clock must be surveyed and
+  synchronised; a 1° heading error on a camera puts a 2 km target 35 m off its radar track and
+  breaks association. Check with a known target (an ADS-B aircraft or a drone carrying GPS).
+- **Retraining on local data.** The detectors learned Swedish sites, sky and birds. Indian
+  airfields and bases see black kites, vultures and egrets in large numbers, haze and dust that
+  cut contrast, heat shimmer in thermal imagery, and different drone types. Collect and label
+  local footage, then re-measure the confusion matrices; the fusion code does not change.
+- **Radar data.** Replace the radar model with recorded plots, and add a micro-Doppler
+  classifier (rotor blades versus flapping wings) once spectrograms are available.
+- **Validation plan.** Fly known drones on surveyed routes alongside the sensors, log every
+  report, and score with the same metrics (GOSPA, time to identify, birds labelled drone). The
+  simulation results become the prediction to test, not the claim.
+- **Human in the loop.** Threat levels are advisory. Any operational use keeps a trained
+  operator deciding, with each track's evidence breakdown visible.

@@ -79,6 +79,21 @@ def test_clip_score_counts_found_and_correct():
     assert s.unlabelled_detections == 1
 
 
+def test_decide_threshold_and_vote():
+    from nabhnetra.realdata import decide
+
+    # one recording: background, a lone confident drone blip, then three drone windows in a row
+    probs = np.array([[0.1, 0.1, 0.8], [0.9, 0.05, 0.05], [0.1, 0.1, 0.8],
+                      [0.7, 0.1, 0.2], [0.8, 0.1, 0.1], [0.9, 0.05, 0.05]])
+    groups = ["a"] * 6
+    assert decide(probs, groups).tolist() == [2, 0, 2, 0, 0, 0]
+    assert decide(probs, groups, threshold=0.75).tolist() == [2, 0, 2, 2, 0, 0]
+    voted = decide(probs, groups, k=2, n=3)
+    assert voted.tolist() == [2, 2, 2, 0, 0, 0]  # the lone blip is suppressed
+    # windows of another recording never vote for this one
+    assert decide(probs[:2], ["a", "b"], k=1, n=3).tolist() == [2, 0]
+
+
 def test_logmel_shape():
     sr = 22050
     t = np.arange(sr) / sr
