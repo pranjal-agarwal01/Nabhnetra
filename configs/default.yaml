@@ -1,0 +1,135 @@
+# Nabhnetra default configuration.
+# Units: metres, seconds and degrees unless the key says otherwise.
+# Every sensor parameter here is an assumption you can defend or change; see docs/DESIGN.md.
+
+sim:
+  dt_s: 0.5
+  duration_s: 240
+
+site:
+  # Local east-north-up frame centred on the defended asset. No real-world location is used.
+  asset_enu: [0, 0, 0]
+
+sensors:
+  radar:
+    type: radar
+    origin: [0, 0, 10]
+    period_s: 1.0
+    r50_m: 3000            # range at which a 0.01 m^2 target is detected half the time
+    rcs_ref_m2: 0.01
+    pfa: 1.0e-6
+    min_range_m: 50
+    max_range_m: 6000
+    el_min_deg: -2
+    el_max_deg: 45
+    sigma_range_m: 5
+    sigma_az_deg: 0.5
+    sigma_el_deg: 0.8
+    range_res_m: 15        # targets closer than one cell merge into one echo (bird flocks)
+    az_res_deg: 1.5
+    clutter_per_scan: 3
+    clutter_el_max_deg: 8
+    classifier: null       # set to configs/confusion/radar_microdoppler.json once a micro-Doppler model exists
+    label_persistence: 0.5
+
+  eo:                      # daylight camera + ML detector
+    type: camera
+    origin: [0, 0, 10]
+    period_s: 0.5
+    ifov_mrad: 0.08        # angle covered by one pixel
+    px50: 18.5             # measured 6 Nov 2026 in box pixels; the dataset's visible boxes are
+    px_scale: 4.75         # 1.5-3x the target, so this is conservative (true target ~9-12 px)
+    sigma_mrad: 0.3
+    max_range_m: 5000
+    el_min_deg: -5
+    el_max_deg: 70
+    false_alarms_per_frame: 0.05
+    night_factor: 0.02     # nearly blind at night
+    fog_gain: 1.0
+    label_persistence: 0.7
+    confusion: configs/confusion/eo.json
+
+  ir:                      # thermal camera + ML detector
+    type: camera
+    origin: [0, 0, 10]
+    period_s: 0.5
+    ifov_mrad: 0.15
+    px50: 7.5              # measured 6 Nov 2026 (scripts/eval_confusion.py, range-extended val set)
+    px_scale: 2.5          # measured, same run
+    sigma_mrad: 0.5
+    max_range_m: 4000
+    el_min_deg: -5
+    el_max_deg: 70
+    false_alarms_per_frame: 0.05   # assumed; the dataset's unlabelled frames contain real birds
+    night_factor: 1.0      # thermal works at night
+    fog_gain: 3.0          # sees further than EO in haze and fog
+    label_persistence: 0.7
+    confusion: configs/confusion/ir.json
+
+  acoustic:                # microphone array + audio classifier
+    type: acoustic
+    origin: [0, 0, 2]
+    period_s: 1.0
+    sigma_az_deg: 4
+    sigma_el_deg: 8
+    noise_db: 40
+    array_gain_db: 12
+    absorption_db_per_m: 0.005
+    snr50_db: 6
+    snr_scale_db: 2
+    max_range_m: 3000
+    label_persistence: 0.5
+    confusion: configs/confusion/acoustic.json
+
+  adsb:                    # cooperative aircraft broadcasting their position
+    type: adsb
+    origin: [0, 0, 0]
+    period_s: 1.0
+    max_range_m: 25000
+    pd: 0.98
+    sigma_h_m: 10
+    sigma_v_m: 15
+    category_confidence: 0.97
+
+tracker:
+  q: 6.0                   # process noise spectral density (m^2/s^3); higher follows manoeuvres better
+  gate_prob: 0.997
+  confirm_hits: 3
+  tentative_timeout_s: 2.5
+  coast_s: 5.0
+  max_pos_sigma_m: 1500
+  merge_dist_m: 25
+  merge_vel_mps: 5
+  init_vel_sigma_mps: 50
+  bearing_init: auto       # auto: start tracks from camera/acoustic directions only when no radar is active
+  bearing_init_range_m: 1000
+  bearing_init_range_sigma_m: 600
+
+identity:
+  prior: {drone: 0.25, bird: 0.45, aircraft: 0.15, helicopter: 0.15}
+  tau_s: 10                # evidence older than this fades
+  floor: 0.01
+  max_abs_log_evidence: 12
+  sensor_weights: {radar: 0.4, eo: 0.3, ir: 0.3, acoustic: 0.5, adsb: 1.0}
+  kinematics:
+    enabled: true
+    weight: 1.0
+    min_hits: 4
+    max_vel_sigma_mps: 15
+    speed_mps:             # [mean, standard deviation]
+      drone: [13, 6]
+      bird: [10, 4]
+      aircraft: [80, 30]
+      helicopter: [45, 20]
+
+threat:
+  class_weight: {drone: 1.0, helicopter: 0.5, aircraft: 0.35, bird: 0.05}
+  cooperative_factor: 0.3
+  proximity_scale_m: 1500
+  levels: {high: 0.6, medium: 0.3, low: 0.1}
+
+evaluation:
+  gospa_c_m: 100
+  gospa_p: 2
+  volume_radius_m: 4000
+  id_threshold: 0.6        # a drone counts as identified once its track says "drone" with this probability

@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# datasets, trained weights and generated outputs stay out of git
+data/
+runs/
+models/
+*.pt
+*.onnx
+results/
+
+# keep these curated outputs if you want them in the README
+!docs/media/

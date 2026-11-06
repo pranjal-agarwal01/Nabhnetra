@@ -1,0 +1,6 @@
+# Real-data training (optional). Install a CUDA build of torch for GPU training; see README.
+-r requirements.txt
+torch>=2.2
+ultralytics>=8.3          # AGPL-3.0; kept behind scripts/ so it can be swapped for an Apache-2.0 detector
+opencv-python>=4.8
+mcos-decoder==0.1.0       # reads the dataset's MATLAB label files; young package, review before installing

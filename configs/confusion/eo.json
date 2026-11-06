@@ -1,0 +1,259 @@
+{
+  "source": "measured 2026-11-06: runs/detect/eo/weights/best.pt on 10173 held-out target samples (frames shrunk by [1.0, 0.5, 0.25] for range extension) and 75 empty frames (conf 0.25, IoU 0.3). Each bin's rows are shrunk toward the pooled matrix with 20 pseudo-samples, so sparse rows fall back to it.",
+  "range_extension_scales": [
+    1.0,
+    0.5,
+    0.25
+  ],
+  "detected_over_total_by_scale": {
+    "1.0": [
+      3281,
+      3391
+    ],
+    "0.5": [
+      1902,
+      3391
+    ],
+    "0.25": [
+      445,
+      3391
+    ]
+  },
+  "labels": [
+    "drone",
+    "bird",
+    "aircraft",
+    "helicopter"
+  ],
+  "true_classes": [
+    "drone",
+    "bird",
+    "aircraft",
+    "helicopter"
+  ],
+  "bins_px": [
+    8,
+    20
+  ],
+  "matrices": {
+    "distant": [
+      [
+        0.9919,
+        0.0007,
+        0.0007,
+        0.0066
+      ],
+      [
+        0.0297,
+        0.9535,
+        0.013,
+        0.0037
+      ],
+      [
+        0.0798,
+        0.0069,
+        0.8709,
+        0.0424
+      ],
+      [
+        0.0047,
+        0.0094,
+        0.0094,
+        0.9765
+      ]
+    ],
+    "medium": [
+      [
+        0.9824,
+        0.0013,
+        0.0013,
+        0.015
+      ],
+      [
+        0.0418,
+        0.9483,
+        0.0094,
+        0.0006
+      ],
+      [
+        0.042,
+        0.0229,
+        0.925,
+        0.0102
+      ],
+      [
+        0.0005,
+        0.0259,
+        0.0009,
+        0.9727
+      ]
+    ],
+    "close": [
+      [
+        0.9972,
+        0.0,
+        0.0,
+        0.0028
+      ],
+      [
+        0.0241,
+        0.9615,
+        0.012,
+        0.0024
+      ],
+      [
+        0.0869,
+        0.0025,
+        0.8626,
+        0.0481
+      ],
+      [
+        0.0046,
+        0.0062,
+        0.0099,
+        0.9793
+      ]
+    ]
+  },
+  "counts": {
+    "distant": [
+      [
+        1,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "medium": [
+      [
+        773,
+        1,
+        1,
+        12
+      ],
+      [
+        5,
+        108,
+        1,
+        0
+      ],
+      [
+        6,
+        4,
+        150,
+        1
+      ],
+      [
+        0,
+        5,
+        0,
+        175
+      ]
+    ],
+    "close": [
+      [
+        1803,
+        0,
+        0,
+        5
+      ],
+      [
+        10,
+        404,
+        5,
+        1
+      ],
+      [
+        74,
+        2,
+        733,
+        41
+      ],
+      [
+        6,
+        8,
+        13,
+        1280
+      ]
+    ]
+  },
+  "detected_over_total": {
+    "distant": {
+      "drone": [
+        1,
+        657
+      ],
+      "bird": [
+        0,
+        304
+      ],
+      "aircraft": [
+        0,
+        283
+      ],
+      "helicopter": [
+        0,
+        93
+      ]
+    },
+    "medium": {
+      "drone": [
+        787,
+        1776
+      ],
+      "bird": [
+        114,
+        579
+      ],
+      "aircraft": [
+        161,
+        965
+      ],
+      "helicopter": [
+        180,
+        670
+      ]
+    },
+    "close": {
+      "drone": [
+        1808,
+        1821
+      ],
+      "bird": [
+        420,
+        503
+      ],
+      "aircraft": [
+        850,
+        1032
+      ],
+      "helicopter": [
+        1307,
+        1490
+      ]
+    }
+  },
+  "pd_logistic": {
+    "px50": 18.5,
+    "px_scale": 4.75
+  },
+  "detections_per_unlabelled_frame_upper_bound": 0.6
+}

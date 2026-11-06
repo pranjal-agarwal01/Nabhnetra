@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nabhnetra"
+version = "0.1.0"
+description = "Open-source multi-sensor fusion for aerial situational awareness (radar, EO, IR, acoustic, ADS-B)"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "scipy>=1.10", "matplotlib>=3.7", "pyyaml>=6.0"]
+
+[project.optional-dependencies]
+ml = ["torch>=2.2", "ultralytics>=8.3", "opencv-python>=4.8", "mcos-decoder==0.1.0"]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools]
+packages = ["nabhnetra"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

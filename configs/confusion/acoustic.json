@@ -1,0 +1,64 @@
+{
+  "source": "measured 2026-11-06: 5-fold by file over 90 clips (1710 windows of 1.0 s). Drone, helicopter and background rows measured; bird and aircraft rows assumed.",
+  "labels": [
+    "drone",
+    "helicopter",
+    "background"
+  ],
+  "true_classes": [
+    "drone",
+    "bird",
+    "aircraft",
+    "helicopter"
+  ],
+  "matrices": {
+    "all": [
+      [
+        0.9319,
+        0.0157,
+        0.0524
+      ],
+      [
+        0.01,
+        0.01,
+        0.98
+      ],
+      [
+        0.03,
+        0.4,
+        0.57
+      ],
+      [
+        0.0157,
+        0.9127,
+        0.0716
+      ]
+    ]
+  },
+  "background_row": [
+    0.1449,
+    0.089,
+    0.7661
+  ],
+  "assumed_rows": [
+    "bird",
+    "aircraft"
+  ],
+  "counts_true_x_pred": [
+    [
+      533,
+      8,
+      29
+    ],
+    [
+      8,
+      522,
+      40
+    ],
+    [
+      82,
+      50,
+      438
+    ]
+  ]
+}
